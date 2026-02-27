@@ -1,12 +1,14 @@
 # GTA 5 AFK & Automation Bot
 
-This program automates actions in GTA 5 (Grand Theft Auto V) on Windows. It includes an AFK mode to prevent being kicked for inactivity and can execute custom commands from a text file.
+This program automates actions in GTA 5 (Grand Theft Auto V) on Windows. It includes an AFK movement mode, an automated Fishing mode, and an on-screen overlay menu.
 
 ## Features
 
-- **AFK Mode**: Randomly presses keys (W, A, S, D, Space) to simulate activity. Toggle with `F9`.
-- **Command Listener**: Reads commands from `commands.txt` to execute specific actions.
-- **Exit**: Press `F10` to close the bot.
+- **In-Game Overlay Menu**: Press `F9` to toggle a transparent status menu on top of the game.
+- **AFK Movement Mode**: Randomly presses keys (W, A, S, D, Space) to simulate activity and prevent inactivity kicks. Toggle with `F8`.
+- **AFK Fishing Mode**: Automatically casts the fishing rod (pressing '1') and uses screen detection to click when the blue progress bar indicates a catch. Toggle with `F7`.
+- **Command Listener**: Reads commands from `commands.txt` to execute specific actions programmatically.
+- **Exit**: Press `F10` to close the bot safely.
 
 ## Requirements
 
@@ -28,7 +30,9 @@ This program automates actions in GTA 5 (Grand Theft Auto V) on Windows. It incl
 
 ## Usage
 
-**IMPORTANT**: You must run this script or the executable as **Administrator** for the inputs to register in GTA 5.
+**IMPORTANT:**
+1. You must run this script or the executable as **Administrator** for the inputs to register in GTA 5.
+2. For the overlay menu to be visible, GTA 5 must be set to **"Windowed Borderless"** or **"Windowed"** mode in the game's Graphics settings. Exclusive Fullscreen mode will block the overlay.
 
 ### Running as a Script
 
@@ -47,23 +51,17 @@ To compile the script into a standalone `.exe` file that you can run without ope
 1.  Ensure you have installed the requirements (specifically `pyinstaller`).
 2.  Run the following command:
     ```bash
-    pyinstaller --onefile main.py
+    pyinstaller --onefile --noconsole main.py
     ```
+    *(Note: Using `--noconsole` is now recommended since the GUI overlay handles state display.)*
 3.  The `main.exe` file will be created in the `dist` folder. You can move this file anywhere and run it (Right-click -> Run as Administrator).
 
-## How to Control
+## How to Control (Hotkeys)
 
-- **F9**: Toggle AFK Mode ON/OFF.
-- **F10**: Stop the bot.
-- **commands.txt**: Create a file named `commands.txt` in the same folder as the script/exe. Write commands in it to control the bot remotely or via another script.
-    - Supported commands:
-        - `walk_forward [duration]`
-        - `walk_back [duration]`
-        - `left [duration]`
-        - `right [duration]`
-        - `jump`
-        - `shoot`
-        - `afk_on`
-        - `afk_off`
+- **F7**: Toggle AFK Fishing Mode ON/OFF.
+- **F8**: Toggle AFK Movement Mode ON/OFF.
+- **F9**: Toggle Overlay Menu visibility ON/OFF.
+- **F10**: Stop and Exit the bot.
 
-**Note**: The game (GTA 5) must be the active window for the keystrokes to register.
+## Note on Fishing Mode
+The fishing bot captures a specific region of the screen and looks for a specific blue color. Depending on your monitor resolution and the specific server's fishing UI, you may need to open `main.py` and adjust the `monitor` coordinates or the HSV color range (`lower_blue`, `upper_blue`) inside the `fish_loop` function.

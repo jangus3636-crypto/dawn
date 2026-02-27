@@ -1,3 +1,7 @@
 pydirectinput
 keyboard
 pyinstaller
+mss
+opencv-python
+numpy
+pyautogui

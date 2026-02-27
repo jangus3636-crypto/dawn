@@ -32,8 +32,12 @@ class BotOverlay(tk.Tk):
         # Make window stay on top, transparent, and borderless
         self.attributes('-topmost', True)
         self.overrideredirect(True)
-        self.attributes('-alpha', 0.8) # 80% opacity
-        self.config(bg='black')
+        self.attributes('-alpha', 0.85) # 85% opacity
+
+        # Dark purple and black theme
+        self.bg_color = '#0a0a0a' # Very dark grey/black
+        self.fg_color = '#b366ff' # Neon purple
+        self.config(bg=self.bg_color)
 
         # Position in top left
         self.geometry("+20+20")
@@ -42,11 +46,11 @@ class BotOverlay(tk.Tk):
             self,
             text="Loading...",
             font=("Consolas", 12, "bold"),
-            fg="#00FF00", # Matrix green
-            bg="black",
+            fg=self.fg_color,
+            bg=self.bg_color,
             justify=tk.LEFT,
-            padx=10,
-            pady=10
+            padx=15,
+            pady=15
         )
         self.status_label.pack()
 
@@ -60,12 +64,12 @@ class BotOverlay(tk.Tk):
 
     def update_status_text(self):
         text = "GTA 5 Bot Menu\n"
-        text += "-"*20 + "\n"
-        text += f"AFK Movement: {'ON' if is_afk_mode else 'OFF'} [F8]\n"
-        text += f"AFK Fishing: {'ON' if is_fishing_mode else 'OFF'} [F7]\n"
-        text += "-"*20 + "\n"
-        text += "Hide/Show Menu: [F9]\n"
-        text += "Exit Bot: [F10]"
+        text += "="*20 + "\n"
+        text += f"AFK Movement: {'[ON]' if is_afk_mode else '[OFF]'} (F8)\n"
+        text += f"AFK Fishing:  {'[ON]' if is_fishing_mode else '[OFF]'} (F7)\n"
+        text += "="*20 + "\n"
+        text += "Hide/Show Menu: (F9)\n"
+        text += "Exit Bot:       (F10)"
         self.status_label.config(text=text)
 
     def check_state(self):
@@ -92,74 +96,126 @@ class BotOverlay(tk.Tk):
 
 def fish_loop():
     """
-    Automates fishing:
-    1. Presses '1' to equip/cast rod.
-    2. Uses mss and OpenCV to detect a specific blue color on the screen.
-    3. Clicks when the color (fish/bobber moving to the blue bar) is detected.
+    Automates fishing minigame:
+    1. Casts line with '1'
+    2. Detects the white hook and the cyan/blue wave zone.
+    3. Holds left click if hook is to the right of the wave center.
+    4. Releases left click if hook is to the left of the wave center.
     """
     global is_fishing_mode, is_running
 
     print("Fishing Mode Thread Started.")
 
-    with mss.mss() as sct:
-        # Define screen region to capture
-        monitor = {"top": 400, "left": 700, "width": 500, "height": 300}
+    # We need to maintain state of mouse button to avoid spamming click commands
+    mouse_held = False
 
-        # Define HSV color range for the "blue bar"
-        lower_blue = np.array([100, 150, 0])
-        upper_blue = np.array([140, 255, 255])
+    with mss.mss() as sct:
+        # Define screen region to capture (approximate lower center where the bar is)
+        # You may need to tune this to your specific resolution (e.g., 1920x1080)
+        monitor = {"top": 600, "left": 400, "width": 1120, "height": 300}
+
+        # Color definitions for detection (HSV space)
+        # Cyan/Blue wave
+        lower_cyan = np.array([80, 100, 100])
+        upper_cyan = np.array([100, 255, 255])
+
+        # White Hook
+        lower_white = np.array([0, 0, 200])
+        upper_white = np.array([180, 30, 255])
 
         while is_running:
             if not is_fishing_mode:
+                if mouse_held:
+                    with command_lock:
+                        try: pydirectinput.mouseUp()
+                        except: pass
+                    mouse_held = False
                 time.sleep(1)
                 continue
 
             try:
-                # 1. Cast line (Requires lock only for the input)
+                # 1. Cast line
                 with command_lock:
                     pydirectinput.press('1')
 
-                time.sleep(2) # Wait for animation outside of lock
-                print("Fishing: Line cast. Waiting for bite...")
+                time.sleep(2) # Wait for cast animation
+                print("Fishing: Line cast. Entering tracking loop...")
 
-                # 2. Watch for the blue color for up to 30 seconds
-                timeout = time.time() + 30
-                caught = False
+                # Assume a single minigame session doesn't last longer than 60 seconds
+                timeout = time.time() + 60
 
                 while time.time() < timeout and is_fishing_mode and is_running:
-                    # Capture screen
                     img = np.array(sct.grab(monitor))
-
-                    # Convert BGR to HSV
                     hsv = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
                     hsv = cv2.cvtColor(hsv, cv2.COLOR_BGR2HSV)
 
-                    # Threshold the HSV image to get only blue colors
-                    mask = cv2.inRange(hsv, lower_blue, upper_blue)
+                    # Create masks
+                    mask_cyan = cv2.inRange(hsv, lower_cyan, upper_cyan)
+                    mask_white = cv2.inRange(hsv, lower_white, upper_white)
 
-                    # Count blue pixels
-                    blue_pixels = cv2.countNonZero(mask)
+                    # Find contours to locate the objects
+                    contours_cyan, _ = cv2.findContours(mask_cyan, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    contours_white, _ = cv2.findContours(mask_white, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                    # If significant blue is detected, trigger the click
-                    if blue_pixels > 50:
-                        print("Fishing: Blue detected! Clicking...")
-                        # 3. Reel in (Requires lock only for the input)
-                        with command_lock:
-                            pydirectinput.click()
-                        time.sleep(1) # Prevent spam clicking
-                        caught = True
-                        break
+                    cyan_x_center = None
+                    hook_x = None
 
-                    time.sleep(0.05) # Loop delay
+                    # Find largest cyan contour (the wave)
+                    if contours_cyan:
+                        c_max = max(contours_cyan, key=cv2.contourArea)
+                        if cv2.contourArea(c_max) > 100: # noise filter
+                            x, y, w, h = cv2.boundingRect(c_max)
+                            cyan_x_center = x + (w // 2)
 
-                if not caught and is_fishing_mode:
-                    print("Fishing: Timeout, recasting...")
+                    # Find white hook
+                    # The hook is small, so we look for a smaller area contour
+                    if contours_white:
+                        for c in contours_white:
+                            if 50 < cv2.contourArea(c) < 1000:
+                                x, y, w, h = cv2.boundingRect(c)
+                                hook_x = x + (w // 2)
+                                break # Found a plausible hook
+
+                    # Logic: Keep hook in the cyan area
+                    if cyan_x_center is not None and hook_x is not None:
+                        # If hook is to the right of the wave's center, we need to move wave right (hold click)
+                        if hook_x > cyan_x_center + 10:
+                            if not mouse_held:
+                                with command_lock:
+                                    pydirectinput.mouseDown()
+                                mouse_held = True
+
+                        # If hook is to the left, let wave move left (release click)
+                        elif hook_x < cyan_x_center - 10:
+                            if mouse_held:
+                                with command_lock:
+                                    pydirectinput.mouseUp()
+                                mouse_held = False
+                    else:
+                        # If we lose track of objects, release mouse to be safe
+                        if mouse_held:
+                            with command_lock:
+                                pydirectinput.mouseUp()
+                            mouse_held = False
+
+                    time.sleep(0.02) # High frequency polling for smooth tracking
+
+                # End of fishing session attempt
+                if mouse_held:
+                    with command_lock:
+                        pydirectinput.mouseUp()
+                    mouse_held = False
 
                 time.sleep(3) # Wait before next cast
 
             except Exception as e:
                  print(f"Fishing simulation/error: {e}")
+                 if mouse_held:
+                    try: pydirectinput.mouseUp()
+                    except: pass
+                    mouse_held = False
                  time.sleep(2)
+
 
 def afk_loop():
     """

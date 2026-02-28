@@ -16,9 +16,36 @@ except ImportError:
 # Global flag to control the bot
 is_running = False
 is_afk_mode = False
+is_mining_mode = False
 
 COMMAND_FILE = "commands.txt"
 command_lock = threading.Lock()
+
+def mining_loop():
+    """
+    Holds the 'e' key for 10.1 seconds to mine, then repeats.
+    """
+    global is_mining_mode
+    print("Mining Mode Started. Press F8 to stop.")
+
+    while is_running:
+        if not is_mining_mode:
+            time.sleep(1)
+            continue
+
+        print("Mining Action: Holding 'e' for 10.1s")
+
+        with command_lock:
+            try:
+                pydirectinput.keyDown('e')
+                time.sleep(10.1)
+                pydirectinput.keyUp('e')
+            except NameError:
+                print("[Simulation] Holding 'e' for 10.1s")
+                time.sleep(10.1)
+
+        # Small pause between mining actions
+        time.sleep(0.5)
 
 def afk_loop():
     """
@@ -55,7 +82,7 @@ def process_commands_loop():
     """
     Continuously reads commands from a text file and executes them in a separate thread.
     """
-    global is_afk_mode, is_running
+    global is_afk_mode, is_running, is_mining_mode
 
     print(f"Command Processor Started. Monitoring {COMMAND_FILE}...")
 
@@ -130,6 +157,16 @@ def process_commands_loop():
                                     is_afk_mode = False
                                     print("AFK Mode Toggled OFF via command")
 
+                            elif cmd == "mine_on":
+                                if not is_mining_mode:
+                                    is_mining_mode = True
+                                    print("Mining Mode Toggled ON via command")
+
+                            elif cmd == "mine_off":
+                                if is_mining_mode:
+                                    is_mining_mode = False
+                                    print("Mining Mode Toggled OFF via command")
+
                             else:
                                 print(f"Unknown command: {cmd}")
 
@@ -141,10 +178,11 @@ def process_commands_loop():
         time.sleep(1)
 
 def main():
-    global is_running, is_afk_mode
+    global is_running, is_afk_mode, is_mining_mode
     is_running = True
 
     print("GTA 5 Bot Started.")
+    print("Press F8 to toggle Mining Mode manually.")
     print("Press F9 to toggle AFK Mode manually.")
     print("Press F10 to Exit.")
 
@@ -158,6 +196,11 @@ def main():
     afk_thread.daemon = True
     afk_thread.start()
 
+    # Start Mining Thread
+    mining_thread = threading.Thread(target=mining_loop)
+    mining_thread.daemon = True
+    mining_thread.start()
+
     try:
         while is_running:
             # Check for hotkeys
@@ -166,7 +209,17 @@ def main():
                     print("Exiting...")
                     is_running = False
                     is_afk_mode = False
+                    is_mining_mode = False
                     break
+
+                if keyboard.is_pressed('F8'):
+                    if is_mining_mode:
+                        is_mining_mode = False
+                        print("Mining Mode Toggled OFF")
+                    else:
+                        is_mining_mode = True
+                        print("Mining Mode Toggled ON")
+                    time.sleep(0.5) # Debounce
 
                 if keyboard.is_pressed('F9'):
                     if is_afk_mode:

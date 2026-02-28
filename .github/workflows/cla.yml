@@ -16,7 +16,15 @@ jobs:
       ) 
       || (github.event.pull_request && !github.event.pull_request.merged)
     steps:
+      - name: Set CLA Token Fallback
+        id: cla_token
+        run: |
+          if [ -z "${{ secrets.CLA_TOKEN }}" ]; then
+            echo "token=dummy_token" >> $GITHUB_OUTPUT
+          else
+            echo "token=${{ secrets.CLA_TOKEN }}" >> $GITHUB_OUTPUT
+          fi
       - uses: Shopify/shopify-cla-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          cla-token: ${{ secrets.CLA_TOKEN || 'dummy_token' }}
+          cla-token: ${{ steps.cla_token.outputs.token }}

@@ -4,6 +4,7 @@ This program automates actions in GTA 5 (Grand Theft Auto V) on Windows. It incl
 
 ## Features
 
+- **Mining Mode**: Automatically holds the 'E' key for 10 seconds to mine resources continuously. Toggle with `F8`.
 - **AFK Mode**: Randomly presses keys (W, A, S, D, Space) to simulate activity. Toggle with `F9`.
 - **Command Listener**: Reads commands from `commands.txt` to execute specific actions.
 - **Exit**: Press `F10` to close the bot.
@@ -53,6 +54,7 @@ To compile the script into a standalone `.exe` file that you can run without ope
 
 ## How to Control
 
+- **F8**: Toggle Mining Mode ON/OFF.
 - **F9**: Toggle AFK Mode ON/OFF.
 - **F10**: Stop the bot.
 - **commands.txt**: Create a file named `commands.txt` in the same folder as the script/exe. Write commands in it to control the bot remotely or via another script.
@@ -65,5 +67,7 @@ To compile the script into a standalone `.exe` file that you can run without ope
         - `shoot`
         - `afk_on`
         - `afk_off`
+        - `mine_on`
+        - `mine_off`
 
 **Note**: The game (GTA 5) must be the active window for the keystrokes to register.
